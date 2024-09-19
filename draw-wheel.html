@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>機率轉盤</title>
+    <title>轉盤</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             display: flex;
@@ -12,61 +13,361 @@
             height: 100vh;
             flex-direction: column;
             font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            position: relative;
         }
 
         .wheel-container {
             position: relative;
+            width: 90vw; /* 使用視窗寬度的 90% */
+            height: 90vw; /* 讓轉盤保持正方形 */
+            max-width: 500px;
+            max-height: 500px;
         }
 
         canvas {
+            width: 100%;
+            height: 100%;
             border: 5px solid #000;
             border-radius: 50%;
+            box-sizing: border-box;
         }
 
         button {
-            margin-top: 20px;
             padding: 10px 20px;
             font-size: 16px;
+            cursor: pointer;
         }
 
         #result {
-            margin-top: 20px;
             font-size: 18px;
             color: #333;
+            width: 200px; /* 固定寬度，確保結果輸入框一致 */
+            text-align: center;
+            padding: 10px;
         }
 
         /* 繪製箭頭 */
         #arrow {
-            position: absolute;
-            top: -20px; /* 顯示在轉盤正上方 */
+            width: 40px;
             left: 50%;
-            transform: translateX(-50%) rotate(0deg); /* 將箭頭向下旋轉 */
-            width: 0;
-            height: 0;
-            border-left: 20px solid transparent;
-            border-right: 20px solid transparent;
-            border-top: 40px solid red;
+            height: 17px;
+            top: -12px;
+            position: relative;
+            background-color: red;
+            transform: translateX(-50%) rotate(90deg);
         }
 
-		/* 設置結果輸入框和按鈕在同一行 */
+        #arrow:after {
+            content: '';
+            display: block;
+            position: absolute;
+            left: 100%;
+            top: -8px;
+            border-top: 16px solid transparent;
+            border-bottom: 16px solid transparent;
+            border-left: 30px solid red;
+            transform: translateX(-50%) rotate(0deg);
+        }
+
+        /* 設置結果輸入框和按鈕在同一行，RWD下自動換行 */
         .result-container {
             display: flex;
             align-items: center;
             margin-top: 20px;
+            justify-content: center;
+            flex-wrap: wrap; /* 讓結果和按鈕在小螢幕上換行 */
         }
 
+        input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .item-list {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            background-color: #f9f9f9;
+            border: 1px black solid;
+            margin-bottom: 5px;
+        }
+
+        .item-list label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .list-area {
+            position: fixed;
+            right: 15px;
+            top: 20px;
+            width: 300px;
+            height: auto;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 35px;
+            box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none; /* 初始隱藏 */
+            overflow-y: auto;
+        }
+
+        .history-area {
+            position: fixed;
+            left: 15px;
+            top: 20px;
+            width: 300px;
+            height: auto;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none; /* 初始隱藏 */
+            overflow-y: auto;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        #saveButton, #historyButton {
+            width: 100%;
+        }
+
+        /* 漢堡圖示 */
+        .menu-icon, .history-icon {
+            position: fixed;
+            top: 23px;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            z-index: 1001; /* 確保漢堡圖示在所有元素之上 */
+        }
+
+        .menu-icon {
+            right: 12px;
+        }
+
+        .history-icon {
+            left: 37px;
+            top: 27px;
+        }
+
+        .bar {
+            height: 3px;
+            background-color: black;
+            margin: 4px 0;
+            transition: 0.3s;
+        }
+
+        /* 開啟狀態時的樣式 */
+        .menu-icon.open .bar:nth-child(1), .history-icon.open .bar:nth-child(1) {
+            transform: rotate(45deg) translateY(14px);
+        }
+
+        .menu-icon.open .bar:nth-child(2), .history-icon.open .bar:nth-child(2) {
+            opacity: 0;
+        }
+
+        .menu-icon.open .bar:nth-child(3), .history-icon.open .bar:nth-child(3) {
+            transform: rotate(-45deg) translateY(-14px);
+        }
+
+        /* 結果浮動視窗 */
+        .result-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            border: 3px solid #ff4d4d; /* 喜慶的紅色邊框 */
+            padding: 30px;
+            box-shadow: 0px 8px 16px rgba(0,0,0,0.4);
+            z-index: 2000;
+            display: none; /* 初始隱藏 */
+            text-align: center;
+            animation: popupShow 0.5s ease-out;
+            border-radius: 15px;
+            max-width: 80vw; /* 最大寬度 */
+        }
+
+        .result-popup h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #ff0000; /* 紅色文字 */
+        }
+
+        .result-popup .close-btn {
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .result-popup .close-btn:hover {
+            background-color: #cc0000;
+        }
+
+        ul {
+            list-style-type: none; /* 去除預設的項目符號 */
+            padding: 0;
+            margin: 0;
+        }
+
+        li {
+            display: flex; /* 設置為彈性佈局 */
+            justify-content: space-between; /* 元素之間左右對齊 */
+            align-items: center; /* 元素垂直居中對齊 */
+            padding: 5px 10px; /* 添加內邊距 */
+            border-bottom: 1px solid #ddd; /* 添加底部分隔線 */
+            margin-bottom: 5px; /* 添加底部間距 */
+            font-size: 16px; /* 設置字體大小 */
+        }
+
+        .delete-btn {
+            background: none; /* 移除按鈕背景 */
+            border: none; /* 移除按鈕邊框 */
+            color: #ff4d4d; /* 設置按鈕顏色為紅色 */
+            font-size: 18px; /* 設置字體大小 */
+            cursor: pointer; /* 設置為點擊手勢 */
+            padding: 0; /* 移除內邊距 */
+            margin: 0; /* 移除外邊距 */
+            display: flex; /* 彈性佈局 */
+            align-items: center; /* 垂直居中 */
+        }
+
+        .delete-btn:hover {
+            color: #cc0000; /* 設置滑鼠懸停時的顏色 */
+        }
+
+        .delete-btn i {
+            margin-right: 5px; /* 圖標與文字間距 */
+        }
+
+        /* RWD 樣式調整 */
+        @media (max-width: 600px) {
+            button {
+                width: 100%;
+                font-size: 14px;
+                margin-top: 5px;
+            }
+
+            input {
+                width: 40%;
+                font-size: 14px;
+                margin-bottom: 10px;
+                margin-right: 0px;
+            }
+
+            #result {
+                font-size: 14px;
+                width: 100%;
+            }
+
+            .item-list {
+                width: 100%;
+                max-height: 70vh; /* 調整最大高度 */
+            }
+
+            .list-area, .history-area {
+                width: 100%;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                top: 0;
+                padding: 10px; /* 調整內邊距 */
+                box-sizing: border-box;
+                border-radius: 12px 12px 0 0; /* 圓角效果 */
+                z-index: 1000; /* 調整浮動視窗的 z-index */
+            }
+
+            .history-area {
+                padding-left: 35px;
+            }
+
+            .button-group {
+                flex-direction: column;
+                align-items: stretch;
+                margin-bottom: 0;
+            }
+
+            #saveButton {
+                margin-top: 10px;
+            }
+        }
     </style>
 </head>
-<body>
-    <div class="wheel-container">
-        <div id="arrow"></div> <!-- 靜態箭頭 -->
-        <canvas id="wheel" width="500" height="500"></canvas>
-        <br />
+<body onload="init();">
+    <!-- 漢堡圖示 -->
+    <div class="menu-icon" id="menuIcon" onclick="toggleMenu()">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
     </div>
-    <!-- 設置結果輸入框和按鈕 -->
-    <div class="result-container">
-        <input type="text" id="result" style="margin-right: 10px;" disabled="true" />
-        <button id="spinButton">轉動轉盤</button>
+
+    <!-- 歷史記錄圖示 -->
+    <div class="history-icon" id="historyIcon" onclick="toggleHistory()">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+
+    <!-- 項目選擇浮動視窗 -->
+    <div class="list-area" id="listArea">
+        <!-- 用於選擇項目的 Checkbox 列表 -->
+        <div class="item-list" id="checklistContainer">
+            <!-- 項目會動態生成 -->
+        </div>
+        <div class="button-group">
+            <button id="selallButton">全選</button>
+            <button id="selnonButton">全不選</button>
+        </div>
+        <button id="saveButton">確認修改</button>
+    </div>
+
+    <!-- 歷史記錄浮動視窗 -->
+    <div class="history-area" id="historyArea">
+        <h3>歷史選擇記錄</h3>
+        <ul id="historyList">
+            <!-- 歷史記錄會動態生成 -->
+        </ul>
+        <button id="clearHistoryButton">清空歷史記錄</button>
+    </div>
+
+    <div>
+        <div class="wheel-container">
+            <div id="arrow"></div> <!-- 靜態箭頭 -->
+            <canvas id="wheel"></canvas>
+        </div>
+
+        <!-- 設置結果輸入框和按鈕 -->
+        <div class="result-container">
+            <input type="text" id="result" disabled="true" />
+            <button id="spinButton">轉動轉盤</button>
+        </div>
+    </div>
+
+    <!-- 結果浮動視窗 -->
+    <div class="result-popup" id="resultPopup">
+        <h2 id="popupName">這裡會顯示名字...</h2>
+        <p id="popupText">這裡會顯示結果...</p>
+        <button class="close-btn" onclick="closePopup()">關閉</button>
     </div>
 
     <script>
@@ -74,9 +375,25 @@
         const ctx = canvas.getContext('2d');
         const spinButton = document.getElementById('spinButton');
         const resultDisplay = document.getElementById('result');
-
-        // 提供的項目列表
-        const items = [
+        const checklistContainer = document.getElementById('checklistContainer');
+        const selallButton = document.getElementById('selallButton');
+        const selnonButton = document.getElementById('selnonButton');
+        const saveButton = document.getElementById('saveButton');
+        const listArea = document.getElementById('listArea');
+        const menuIcon = document.getElementById('menuIcon');
+        const historyIcon = document.getElementById('historyIcon');
+        const historyArea = document.getElementById('historyArea');
+        const historyList = document.getElementById('historyList');
+        const clearHistoryButton = document.getElementById('clearHistoryButton');
+        const resultPopup = document.getElementById('resultPopup');
+        const popupName = document.getElementById('popupName');
+        const popupText = document.getElementById('popupText');
+        let items = [];
+        let totalItems = 0;
+        let segmentAngle = 0;
+        let history = [];
+        let eggProbability = 0.1; // 設置為 1 (100%) 來觸發彩蛋效果
+        const defaultItems = [
             "李宗穎", "陳昱璇", "楊凱傑", "郭家茵", "陳彥廷", "陳信宏",
             "林妤綺", "林㛄婷", "黎書宏", "吳宗璋", "林士欽", "史卯郁",
             "顏暖真", "曾敬德", "張智絢", "盧鳳珠", "林鈺程", "郭羽庭",
@@ -97,37 +414,95 @@
             'rgb(255, 102, 255)'  // 柔和的紫色
         ];
 
-        // 計算每個區塊的角度，設置為均等機率
-        const totalItems = items.length;
-        const segmentAngle = 2 * Math.PI / totalItems;
+        // 初始化項目列表
+        function init() {
+            populateChecklist(); // 初始化 Checkbox 列表
+            const initialItems = getSelectedItems(); // 獲取動態項目列表
+            setItems(initialItems);
+            resizeCanvas();
+        }
+
+        // 填充 Checkbox 列表
+        function populateChecklist() {
+            checklistContainer.innerHTML = ''; // 清空列表
+            defaultItems.forEach((item, index) => {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = item;
+                checkbox.id = `item${index}`;
+                checkbox.checked = true; // 默認全選
+
+                const label = document.createElement('label');
+                label.htmlFor = `item${index}`;
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(item));
+
+                checklistContainer.appendChild(label);
+            });
+        }
+
+        // 根據選中的項目設置項目列表
+        function setItems(objs) {
+            items = objs.length ? objs : defaultItems; // 使用默認項目列表
+            totalItems = items.length;
+            segmentAngle = 2 * Math.PI / totalItems; // 計算每個區塊的角度
+        }
+
+        // 調整畫布的寬高，使其適應容器
+        function resizeCanvas() {
+            const container = document.querySelector('.wheel-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            drawWheel(); // 畫布大小改變時重繪轉盤
+        }
+
+        // 獲取選中的項目
+        function getSelectedItems() {
+            const checkboxes = checklistContainer.querySelectorAll('input[type="checkbox"]:checked');
+            return Array.from(checkboxes).map(checkbox => checkbox.value);
+        }
+
+        // 全選功能
+        function selectAllItems() {
+            const checkboxes = checklistContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+        }
+
+        // 不選功能
+        function selectNoneItems() {
+            const checkboxes = checklistContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+        }
 
         // 繪製轉盤
         function drawWheel(angleOffset = 0) {
+            if (!items.length) return; // 沒有項目時不繪製
             let startAngle = angleOffset;
+
             items.forEach((item, index) => {
-                // 循環分配柔和顏色
                 const color = softColors[index % softColors.length];
                 ctx.beginPath();
-                ctx.moveTo(250, 250);
-                ctx.arc(250, 250, 250, startAngle, startAngle + segmentAngle);
+                ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, startAngle, startAngle + segmentAngle);
                 ctx.fillStyle = color;
                 ctx.fill();
                 startAngle += segmentAngle;
 
-                // 在每個區塊中顯示文本，改為直式顯示
+                // 顯示文本（直式排列）
                 const textAngle = startAngle - segmentAngle / 2;
                 ctx.save();
-                ctx.translate(250 + Math.cos(textAngle) * 180, 250 + Math.sin(textAngle) * 180); // 位置調整
-                ctx.rotate(textAngle + Math.PI / 2); // 使文字垂直顯示
-
-                // 將文字拆成單字垂直排列
+                ctx.translate(canvas.width / 2 + Math.cos(textAngle) * (canvas.width / 2.5), canvas.height / 2 + Math.sin(textAngle) * (canvas.height / 2.5));
+                ctx.rotate(textAngle + Math.PI / 2);
                 ctx.fillStyle = "#000";
                 ctx.font = "bold 14px Arial";
                 const lines = item.split(''); // 把每個字分成單個字元
                 lines.forEach((line, i) => {
-                    ctx.fillText(line, -ctx.measureText(line).width / 2, i * 18 - (lines.length * 9)); // 每個字元上下排布
+                    ctx.fillText(line, -ctx.measureText(line).width / 2, i * 18 - (lines.length * 9));
                 });
-
                 ctx.restore();
             });
         }
@@ -141,20 +516,24 @@
         }
 
         // 處理轉盤旋轉
-		function startSpin() {
+        function startSpin() {
 			if (spinning) return; // 防止在旋轉過程中多次觸發
 			spinning = true;
 			resultDisplay.value = ''; // 清除之前的結果
 
 			const targetItem = spinWheel(); // 決定轉盤最終的結果
 			const targetIndex = items.indexOf(targetItem);
-			
-			// 計算每個區塊的中心角度，將選中的項目對齊箭頭位置（正上方，即 3 * Math.PI / 2）
-			const targetAngle = (3 * Math.PI / 2) - (targetIndex * segmentAngle) - (segmentAngle / 2);
-			
+			let targetAngle = (3 * Math.PI / 2) - (targetIndex * segmentAngle) - (segmentAngle / 2);
+
+			// 設置旋轉時的隨機角度偏移（這樣箭頭不一定正中間指向項目）
+			const offset = Math.random() * segmentAngle - segmentAngle / 2;
+			targetAngle += offset;
+
 			const rotations = 5; // 總轉動圈數
 			const totalRotation = rotations * 2 * Math.PI + targetAngle; // 最終的旋轉角度
-			const duration = 3000; // 旋轉時間
+			const duration = 3000 + Math.random() * 5000; // 旋轉時間
+
+			const eggTriggered = Math.random() < eggProbability; // 是否觸發彩蛋（反向旋轉）
 			const startTime = performance.now();
 
 			function animate(currentTime) {
@@ -165,12 +544,61 @@
 
 				if (progress < 1) {
 					requestAnimationFrame(animate);
+				} else if (eggTriggered) {
+					// 反向旋轉彩蛋觸發
+					reverseSpin(currentAngle, targetAngle);
 				} else {
-					spinning = false; // 旋轉結束
-					resultDisplay.value = `結果: ${targetItem}`; // 顯示結果
+					finalizeSpin(targetAngle); // 完成旋轉並顯示結果
 				}
 			}
 
+			function reverseSpin(currentAngle, finalTargetAngle) {
+				const reverseDuration = 1000 + Math.random() * 2000; // 反向旋轉時間
+				const reverseStartTime = performance.now();
+				const reverseAmount = segmentAngle * (Math.random() * 0.5 + 0.5); // 隨機反向角度範圍
+
+				function reverseAnimate(reverseTime) {
+					const reverseElapsed = reverseTime - reverseStartTime;
+					const reverseProgress = Math.min(reverseElapsed / reverseDuration, 1);
+					const reverseAngle = currentAngle - reverseAmount * easeOutCubic(reverseProgress);
+					drawWheel(reverseAngle);
+
+					if (reverseProgress < 1) {
+						requestAnimationFrame(reverseAnimate);
+					} else {
+						// 反向旋轉結束，重新計算當前選中的項目
+						const normalizedAngle = (reverseAngle + 2 * Math.PI) % (2 * Math.PI);
+						let selectedIndex = Math.floor((3 * Math.PI / 2 - normalizedAngle) / segmentAngle) % items.length;
+
+						// 防止索引為負數的情況
+						if (selectedIndex < 0) {
+							selectedIndex = (selectedIndex + items.length) % items.length;
+						}
+
+						const finalItem = items[selectedIndex];
+
+						// 顯示結果
+						if (finalItem) {
+							resultDisplay.value = `結果: ${finalItem}`;
+							showPopup(finalItem);
+							addToHistory(finalItem); // 將結果添加到歷史記錄中
+						} else {
+							resultDisplay.value = `結果: 未知項目 (index: ${selectedIndex})`;
+						}
+
+						spinning = false; // 旋轉結束
+					}
+				}
+				requestAnimationFrame(reverseAnimate);
+			}
+
+			function finalizeSpin(finalTargetAngle) {
+				resultDisplay.value = `結果: ${targetItem}`; // 顯示結果
+				showPopup(targetItem); // 顯示結果浮動視窗
+				addToHistory(targetItem); // 將結果添加到歷史記錄中
+				spinning = false; // 旋轉結束
+			}
+			
 			// 使用 ease-out 函數實現減速效果
 			function easeOutCubic(t) {
 				return 1 - Math.pow(1 - t, 3);
@@ -179,11 +607,114 @@
 			requestAnimationFrame(animate);
 		}
 
-        // 監聽按鈕點擊事件
-        spinButton.addEventListener('click', startSpin);
+        // 觸發彩蛋效果
+        function triggerEasterEgg(finalAngle, targetItem) {
+            const reverseAngle = finalAngle - (Math.PI / 18); // 反方向旋轉約 10 度
+            const reverseDuration = 300 + Math.random() * 500; // 反方向旋轉時間 (300ms ~ 800ms)
+            const startTime = performance.now();
 
-        // 初始化繪製轉盤
-        drawWheel();
+            function reverseAnimate(currentTime) {
+                const elapsedTime = currentTime - startTime;
+                const progress = Math.min(elapsedTime / reverseDuration, 1); // 進度從0到1
+                const currentAngle = finalAngle - (Math.PI / 18) * easeOutCubic(progress); // 使用ease-out效果來減速
+                drawWheel(currentAngle);
+
+                if (progress < 1) {
+                    requestAnimationFrame(reverseAnimate);
+                } else {
+                    resultDisplay.value = `結果: ${targetItem}`; // 顯示結果
+                    showPopup(targetItem); // 顯示結果浮動視窗
+                    addToHistory(targetItem); // 將結果添加到歷史記錄中
+                }
+            }
+			
+			// 使用 ease-out 函數實現減速效果
+			function easeOutCubic(t) {
+				return 1 - Math.pow(1 - t, 3);
+			}
+
+            requestAnimationFrame(reverseAnimate);
+        }
+
+        // 切換項目選擇浮動視窗的顯示與隱藏
+        function toggleMenu() {
+            if (listArea.style.display === 'none' || listArea.style.display === '') {
+                listArea.style.display = 'block';
+                menuIcon.classList.add('open'); // 顯示關閉圖示
+            } else {
+                listArea.style.display = 'none';
+                menuIcon.classList.remove('open'); // 顯示漢堡圖示
+            }
+        }
+
+        // 切換歷史記錄浮動視窗的顯示與隱藏
+        function toggleHistory() {
+            if (historyArea.style.display === 'none' || historyArea.style.display === '') {
+                historyArea.style.display = 'block';
+                historyIcon.classList.add('open'); // 顯示關閉圖示
+                updateHistoryList(); // 更新歷史記錄列表
+            } else {
+                historyArea.style.display = 'none';
+                historyIcon.classList.remove('open'); // 顯示漢堡圖示
+            }
+        }
+
+        // 顯示結果浮動視窗
+        function showPopup(text) {
+            popupName.textContent = `${text}！`;
+            popupText.textContent = `你選中了: ${text}`;
+            resultPopup.style.display = 'block';
+        }
+
+        // 關閉結果浮動視窗
+        function closePopup() {
+            resultPopup.style.display = 'none';
+            updateHistoryList();
+        }
+
+        // 將結果添加到歷史記錄中
+        function addToHistory(text) {
+            history.push(text); // 添加到歷史記錄陣列中
+        }
+
+        // 更新歷史記錄列表
+        function updateHistoryList() {
+            historyList.innerHTML = ''; // 清空現有的歷史記錄
+            history.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `${index + 1}. ${item} <button class="delete-btn" onclick="deleteHistory(${index})"><i class="fas fa-minus-circle"></i></button>`;
+                historyList.appendChild(li);
+            });
+        }
+
+        // 刪除指定的歷史記錄
+        function deleteHistory(index) {
+            history.splice(index, 1); // 刪除指定索引的歷史記錄
+            updateHistoryList(); // 更新歷史記錄列表
+        }
+
+        // 清空歷史記錄
+        clearHistoryButton.addEventListener('click', () => {
+            history = []; // 清空歷史記錄
+            updateHistoryList(); // 更新歷史記錄列表
+        });
+
+        // 為按鈕添加事件監聽
+        selallButton.addEventListener('click', selectAllItems);
+        selnonButton.addEventListener('click', selectNoneItems);
+
+        saveButton.addEventListener('click', () => {
+            const selectedItems = getSelectedItems();
+            setItems(selectedItems);
+            drawWheel(); // 根據選中的項目重新繪製轉盤
+        });
+
+        spinButton.addEventListener('click', () => {
+            saveButton.click(); // 根據選中的項目重新繪製轉盤
+            startSpin(); // 開始旋轉
+        });
+
+        window.addEventListener('resize', resizeCanvas);
     </script>
 </body>
 </html>
