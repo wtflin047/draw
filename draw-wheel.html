@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>機率轉盤</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+        }
+
+        .wheel-container {
+            position: relative;
+        }
+
+        canvas {
+            border: 5px solid #000;
+            border-radius: 50%;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+
+        /* 繪製箭頭 */
+        #arrow {
+            position: absolute;
+            top: -20px; /* 顯示在轉盤正上方 */
+            left: 50%;
+            transform: translateX(-50%) rotate(0deg); /* 將箭頭向下旋轉 */
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 40px solid red;
+        }
+
+		/* 設置結果輸入框和按鈕在同一行 */
+        .result-container {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="wheel-container">
+        <div id="arrow"></div> <!-- 靜態箭頭 -->
+        <canvas id="wheel" width="500" height="500"></canvas>
+        <br />
+    </div>
+    <!-- 設置結果輸入框和按鈕 -->
+    <div class="result-container">
+        <input type="text" id="result" style="margin-right: 10px;" disabled="true" />
+        <button id="spinButton">轉動轉盤</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('wheel');
+        const ctx = canvas.getContext('2d');
+        const spinButton = document.getElementById('spinButton');
+        const resultDisplay = document.getElementById('result');
+
+        // 提供的項目列表
+        const items = [
+            "李宗穎", "陳昱璇", "楊凱傑", "郭家茵", "陳彥廷", "陳信宏",
+            "林妤綺", "林㛄婷", "黎書宏", "吳宗璋", "林士欽", "史卯郁",
+            "顏暖真", "曾敬德", "張智絢", "盧鳳珠", "林鈺程", "郭羽庭",
+            "吳昀晏", "陳　葳", "劉宗泰", "曾曼菱", "鍾宛樺", "黃致崴",
+            "盧柔樺", "施文華", "許季盈", "黃彥博", "葉倩妏", "謝孟庭",
+            "翁瑞琳", "黃可欣", "林曉君", "劉芝芸", "黃足寧", "邱展業",
+            "黃有卿", "周書緯", "涂怡婷", "劉彥伯", "黃瀞儀", "林佩蓉"
+        ];
+
+        // 定義柔和的紅橙黃綠藍靛紫顏色
+        const softColors = [
+            'rgb(255, 102, 102)', // 柔和的紅色
+            'rgb(255, 178, 102)', // 柔和的橙色
+            'rgb(255, 255, 102)', // 柔和的黃色
+            'rgb(178, 255, 102)', // 柔和的綠色
+            'rgb(102, 178, 255)', // 柔和的藍色
+            'rgb(178, 102, 255)', // 柔和的靛色
+            'rgb(255, 102, 255)'  // 柔和的紫色
+        ];
+
+        // 計算每個區塊的角度，設置為均等機率
+        const totalItems = items.length;
+        const segmentAngle = 2 * Math.PI / totalItems;
+
+        // 繪製轉盤
+        function drawWheel(angleOffset = 0) {
+            let startAngle = angleOffset;
+            items.forEach((item, index) => {
+                // 循環分配柔和顏色
+                const color = softColors[index % softColors.length];
+                ctx.beginPath();
+                ctx.moveTo(250, 250);
+                ctx.arc(250, 250, 250, startAngle, startAngle + segmentAngle);
+                ctx.fillStyle = color;
+                ctx.fill();
+                startAngle += segmentAngle;
+
+                // 在每個區塊中顯示文本，改為直式顯示
+                const textAngle = startAngle - segmentAngle / 2;
+                ctx.save();
+                ctx.translate(250 + Math.cos(textAngle) * 180, 250 + Math.sin(textAngle) * 180); // 位置調整
+                ctx.rotate(textAngle + Math.PI / 2); // 使文字垂直顯示
+
+                // 將文字拆成單字垂直排列
+                ctx.fillStyle = "#000";
+                ctx.font = "bold 14px Arial";
+                const lines = item.split(''); // 把每個字分成單個字元
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, -ctx.measureText(line).width / 2, i * 18 - (lines.length * 9)); // 每個字元上下排布
+                });
+
+                ctx.restore();
+            });
+        }
+
+        let spinning = false;
+
+        // 隨機選擇結果
+        function spinWheel() {
+            const randomIndex = Math.floor(Math.random() * totalItems);
+            return items[randomIndex];
+        }
+
+        // 處理轉盤旋轉
+		function startSpin() {
+			if (spinning) return; // 防止在旋轉過程中多次觸發
+			spinning = true;
+			resultDisplay.value = ''; // 清除之前的結果
+
+			const targetItem = spinWheel(); // 決定轉盤最終的結果
+			const targetIndex = items.indexOf(targetItem);
+			
+			// 計算每個區塊的中心角度，將選中的項目對齊箭頭位置（正上方，即 3 * Math.PI / 2）
+			const targetAngle = (3 * Math.PI / 2) - (targetIndex * segmentAngle) - (segmentAngle / 2);
+			
+			const rotations = 5; // 總轉動圈數
+			const totalRotation = rotations * 2 * Math.PI + targetAngle; // 最終的旋轉角度
+			const duration = 3000; // 旋轉時間
+			const startTime = performance.now();
+
+			function animate(currentTime) {
+				const elapsedTime = currentTime - startTime;
+				const progress = Math.min(elapsedTime / duration, 1); // 進度從0到1
+				const currentAngle = totalRotation * easeOutCubic(progress); // 使用ease-out效果來減速
+				drawWheel(currentAngle);
+
+				if (progress < 1) {
+					requestAnimationFrame(animate);
+				} else {
+					spinning = false; // 旋轉結束
+					resultDisplay.value = `結果: ${targetItem}`; // 顯示結果
+				}
+			}
+
+			// 使用 ease-out 函數實現減速效果
+			function easeOutCubic(t) {
+				return 1 - Math.pow(1 - t, 3);
+			}
+
+			requestAnimationFrame(animate);
+		}
+
+        // 監聽按鈕點擊事件
+        spinButton.addEventListener('click', startSpin);
+
+        // 初始化繪製轉盤
+        drawWheel();
+    </script>
+</body>
+</html>
